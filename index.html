@@ -6,7 +6,7 @@
 <title>Melody Preview</title>
 <meta name="apple-mobile-web-app-title" content="Melody Preview">
 <meta name="theme-color" content="#f7c6e3">
-<meta name="app-version" content="2026-11-14.p3">
+<meta name="app-version" content="2026-11-14.p4">
 <link rel="apple-touch-icon" href="images/icon/icon-180.png">
 <link rel="icon" type="image/png" sizes="32x32" href="images/icon/icon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="images/icon/icon-192.png">
@@ -705,7 +705,7 @@ body.bedtime #cFlash{background:radial-gradient(circle,rgba(240,226,255,.9) 0%,r
         <button type="button" id="sOpenAll" class="plugBtn" role="switch" aria-checked="false" aria-label="Open all rooms (grown-up)"><span class="knob">🏰</span></button>
       </div>
       <div class="small" id="openAllStatus" role="status" aria-live="polite">Off: rooms open by playing, as usual</div>
-      <div class="btns" style="margin-top:10px"><button class="secondary" id="openRooms">Open all rooms now</button><button class="secondary" id="resetWorld">Reset the castle and friends</button></div>
+      <div class="btns" style="margin-top:10px"><button class="secondary" id="resetWorld">Reset the castle and friends</button></div>
       <div class="small">Resetting the castle and friends leaves stickers and pictures alone.</div>
       <div class="small" id="appVersionLabel">App version: …</div>
       <div class="btns"><button class="secondary" id="sCancel">Cancel</button><button class="primary" id="sSave">Save</button></div>
@@ -5140,7 +5140,7 @@ function openSettings(){
   $("progressSummary").textContent=progressLine();
   $("worldSummary").textContent=worldLine();
   renderOpenAll();
-  ["resetStickers","clearStory","clearGallery","openRooms","resetWorld"].forEach(id=>{ const b=$(id); if(b.dataset.label) b.textContent=b.dataset.label; else b.dataset.label=b.textContent; });
+  ["resetStickers","clearStory","clearGallery","resetWorld"].forEach(id=>{ const b=$(id); if(b.dataset.label) b.textContent=b.dataset.label; else b.dataset.label=b.textContent; });
   loadModels();
   $("settings").classList.remove("hide");
 }
@@ -5194,12 +5194,6 @@ function renderOpenAll(){
 $("sOpenAll").onclick=()=>{
   openAll=!openAll; store.set("openAllRooms", openAll);
   renderOpenAll(); $("worldSummary").textContent=worldLine();
-  if(!view.classList.contains("hide")) rMap();
-};
-// For a grown-up who wants to look around: every room open at once. Friends are still met the usual way.
-$("openRooms").onclick=()=>{
-  ROOMS.forEach(r=>{ W.rooms[r]=1; }); saveW();
-  $("openRooms").textContent="All rooms are open"; $("worldSummary").textContent=worldLine();
   if(!view.classList.contains("hide")) rMap();
 };
 $("resetWorld").onclick=()=>{
