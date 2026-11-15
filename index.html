@@ -6,7 +6,7 @@
 <title>Melody Preview</title>
 <meta name="apple-mobile-web-app-title" content="Melody Preview">
 <meta name="theme-color" content="#f7c6e3">
-<meta name="app-version" content="2026-11-14.p2">
+<meta name="app-version" content="2026-11-14.p3">
 <link rel="apple-touch-icon" href="images/icon/icon-180.png">
 <link rel="icon" type="image/png" sizes="32x32" href="images/icon/icon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="images/icon/icon-192.png">
@@ -700,6 +700,11 @@ body.bedtime #cFlash{background:radial-gradient(circle,rgba(240,226,255,.9) 0%,r
       <div class="small" id="worldSummary"></div>
       <div class="btns" style="margin-top:10px"><button class="secondary" id="resetStickers">Reset stickers</button><button class="secondary" id="clearStory">Forget saved story</button></div>
       <div class="btns" style="margin-top:10px"><button class="secondary" id="clearGallery">🗑️ Clear picture gallery</button></div>
+      <div class="plugRow">
+        <span>🏰 Open all rooms (grown-up): <span id="openAllState">Off</span></span>
+        <button type="button" id="sOpenAll" class="plugBtn" role="switch" aria-checked="false" aria-label="Open all rooms (grown-up)"><span class="knob">🏰</span></button>
+      </div>
+      <div class="small" id="openAllStatus" role="status" aria-live="polite">Off: rooms open by playing, as usual</div>
       <div class="btns" style="margin-top:10px"><button class="secondary" id="openRooms">Open all rooms now</button><button class="secondary" id="resetWorld">Reset the castle and friends</button></div>
       <div class="small">Resetting the castle and friends leaves stickers and pictures alone.</div>
       <div class="small" id="appVersionLabel">App version: …</div>
@@ -789,6 +794,9 @@ let W = Object.assign(freshWorld(), store.get("world", {}));
 W.rooms.throne=1;
 function saveW(){ store.set("world", W); }
 const met = id => id==="melody" || !!W.met[id];
+// The grown-up "Open all rooms" switch is kept apart from her progress, under its own key. It never marks a room as found.
+let openAll = store.get("openAllRooms", false)===true;
+const roomOpen = r => openAll || !!W.rooms[r];
 
 /* ---- seasons, weather of the day, the Moon, holidays ---- */
 function season(d=new Date()){
@@ -3211,7 +3219,7 @@ const GAMES=[
   {id:"berries", n:"Berries", img:"berry", fn:x=>gBerries(x)},
   {id:"bubbles", n:"Bubbles", img:"bubble", fn:x=>gBubbles(x), ok:()=>met("fizz")},
   {id:"bop", n:"Bop", img:"skipUp", fn:x=>gBop(x), ok:()=>met("skip")},
-  {id:"slide", n:"Slide", img:"towerBow", fn:x=>gSlide(x), ok:()=>!!W.rooms.tower},
+  {id:"slide", n:"Slide", img:"towerBow", fn:x=>gSlide(x), ok:()=>roomOpen("tower")},
   {id:"post", n:"Post", img:"postBalloon", fn:x=>gPost(x), ok:()=>met("pocket")},
   {id:"stars", n:"Stars", img:"starGlow", fn:x=>gStars(x), cozy:1},
   {id:"shadows", n:"Shadows", img:"lampOn", fn:x=>gShadows(x), cozy:1},
@@ -3603,8 +3611,8 @@ async function gBreaths(exit, o={}){
 const ROOMS=["throne","kitchen","library","tower","bedroom","garden"];   // the order the Heart Door finds them
 const ROOM_NAME={throne:"Sparkle Throne Room", kitchen:"Cupcake Kitchen", library:"Storybook Library", tower:"Rainbow Tower", bedroom:"Cloud Bedroom", garden:"Moonflower Garden"};
 const ROOM_FN={throne:()=>rThrone(), kitchen:()=>rKitchen(), library:()=>rLibrary(), tower:()=>rTower(), bedroom:()=>rBedroom(), garden:()=>rGarden()};
-const nextRoom = () => ROOMS.find(r=>!W.rooms[r]);
-const newestRoom = () => { const o=ROOMS.filter(r=>W.rooms[r]); return o[o.length-1]; };
+const nextRoom = () => ROOMS.find(r=>!roomOpen(r));
+const newestRoom = () => { const o=ROOMS.filter(r=>roomOpen(r)); return o[o.length-1]; };
 // A new room is ready as soon as she has done something in the newest room.
 const doorReady = () => !!nextRoom() && !!W.done[newestRoom()];
 function roomDone(r){ if(!W.done[r]){ W.done[r]=1; saveW(); } }
@@ -3705,7 +3713,7 @@ function rMap(){
   const nx=nextRoom();
   ROOMS.forEach(r=>{
     const m=MAP_AT[r];
-    if(W.rooms[r]){
+    if(roomOpen(r)){
       const z=zone(m[0],m[1],m[2],m[3],ROOM_NAME[r],el=>{ bump(el,"cwiggle",650); sparkAt(m[0],m[1],4); stopSpeech(); cTransition(()=>enterRoom(r)); },4);
       z.classList.add("roomglow");
       const ic=spr(m[4],m[0],m[1]+m[3]/2-4.5,13,{z:5}); ic.style.pointerEvents="none";
@@ -3736,16 +3744,16 @@ function rMap(){
 /* ---------- the Heart Door and the Rainbow Walk ---------- */
 function walkDest(){
   if(doorReady()) return {room:nextRoom(), isNew:true};
-  const open=ROOMS.filter(r=>W.rooms[r] && r!=="throne");
+  const open=ROOMS.filter(r=>roomOpen(r) && r!=="throne");
   if(!open.length) return {room:"throne"};
-  if(bedtime && W.rooms.bedroom) return {room:"bedroom"};          // at Cozy Time it always ends at the Cloud Bedroom
+  if(bedtime && roomOpen("bedroom")) return {room:"bedroom"};          // at Cozy Time it always ends at the Cloud Bedroom
   const d=today(), want=[];
-  if(W.rooms.library && met("tilly") && !met("inch")) want.push("library");
-  if(W.rooms.kitchen && met("barley") && !met("sunny") && morningNow()) want.push("kitchen");
-  if(W.rooms.bedroom && !met("whisper") && nightNow()) want.push("bedroom");
-  if(W.rooms.garden && !met("moss") && nightNow()) want.push("garden");
-  if(W.rooms.garden && !d.watered) want.push("garden");
-  if(W.rooms.kitchen && !d.soup) want.push("kitchen");
+  if(roomOpen("library") && met("tilly") && !met("inch")) want.push("library");
+  if(roomOpen("kitchen") && met("barley") && !met("sunny") && morningNow()) want.push("kitchen");
+  if(roomOpen("bedroom") && !met("whisper") && nightNow()) want.push("bedroom");
+  if(roomOpen("garden") && !met("moss") && nightNow()) want.push("garden");
+  if(roomOpen("garden") && !d.watered) want.push("garden");
+  if(roomOpen("kitchen") && !d.soup) want.push("kitchen");
   return {room: want.length ? want[0] : pick(open)};
 }
 async function rWalk(){
@@ -3942,7 +3950,7 @@ function rThrone(){
   function onHeartDoor(){
     bump(hd); sparkOn(hd,2);
     if(dancing||busyNow) return;
-    if(nextRoom() && !doorReady() && ROOMS.filter(r=>W.rooms[r]).length<=1){
+    if(nextRoom() && !doorReady() && ROOMS.filter(r=>roomOpen(r)).length<=1){
       look("heartdoor").then(()=>csay("It opens when a friend is glad to see you. Let's celebrate something with Pippa first!"));
       setHint([pip],"Tap Princess Pippa!");
       return;
@@ -5116,7 +5124,7 @@ $("sPlug").onclick=()=>{ plugUI=!plugUI; renderPlug(); };
 function worldLine(){
   const friends=Object.keys(W.met).filter(id=>FR[id]).map(fname);
   const rooms=ROOMS.filter(r=>W.rooms[r]).length;
-  return "Castle: "+rooms+" of 6 rooms open · Friends met: "+(friends.length ? friends.join(", ") : "none yet")+" · Bows on the ribbon: "+W.bows.length;
+  return "Castle: "+rooms+" of 6 rooms found"+(openAll ? " (all open by the grown-up switch)" : "")+" · Friends met: "+(friends.length ? friends.join(", ") : "none yet")+" · Bows on the ribbon: "+W.bows.length;
 }
 function openSettings(){
   loadVoices();
@@ -5131,6 +5139,7 @@ function openSettings(){
   $("voiceStatus").textContent="";
   $("progressSummary").textContent=progressLine();
   $("worldSummary").textContent=worldLine();
+  renderOpenAll();
   ["resetStickers","clearStory","clearGallery","openRooms","resetWorld"].forEach(id=>{ const b=$(id); if(b.dataset.label) b.textContent=b.dataset.label; else b.dataset.label=b.textContent; });
   loadModels();
   $("settings").classList.remove("hide");
@@ -5175,6 +5184,18 @@ $("resetStickers").onclick=()=>{
 };
 $("clearGallery").onclick=async()=>{ if(confirm("Delete all the pictures saved in the gallery on this device?")){ await idb.del("gallery"); $("clearGallery").textContent="Gallery cleared"; } };
 $("clearStory").onclick=()=>{ clearStory(); $("clearStory").textContent="Story forgotten"; };
+function renderOpenAll(){
+  const b=$("sOpenAll");
+  b.classList.toggle("on", openAll);
+  b.setAttribute("aria-checked", openAll ? "true" : "false");
+  $("openAllState").textContent = openAll ? "On" : "Off";
+  $("openAllStatus").textContent = openAll ? "On: every room is open. Her own progress is kept, and comes back when this is off." : "Off: rooms open by playing, as usual";
+}
+$("sOpenAll").onclick=()=>{
+  openAll=!openAll; store.set("openAllRooms", openAll);
+  renderOpenAll(); $("worldSummary").textContent=worldLine();
+  if(!view.classList.contains("hide")) rMap();
+};
 // For a grown-up who wants to look around: every room open at once. Friends are still met the usual way.
 $("openRooms").onclick=()=>{
   ROOMS.forEach(r=>{ W.rooms[r]=1; }); saveW();
